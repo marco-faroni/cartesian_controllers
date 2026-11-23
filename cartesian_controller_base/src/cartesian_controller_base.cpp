@@ -184,6 +184,11 @@ CartesianControllerBase::on_configure(const rclcpp_lifecycle::State & previous_s
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::ERROR;
   }
 
+  // Lyrical's get_ordered_interfaces() does not allocate in on_activate().
+  m_joint_cmd_pos_handles.reserve(m_joint_names.size());
+  m_joint_cmd_vel_handles.reserve(m_joint_names.size());
+  m_joint_state_pos_handles.reserve(m_joint_names.size());
+
   // Parse joint limits
   KDL::JntArray upper_pos_limits(m_joint_names.size());
   KDL::JntArray lower_pos_limits(m_joint_names.size());
@@ -276,6 +281,10 @@ CartesianControllerBase::on_activate(const rclcpp_lifecycle::State & previous_st
   {
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
+
+  m_joint_cmd_pos_handles.clear();
+  m_joint_cmd_vel_handles.clear();
+  m_joint_state_pos_handles.clear();
 
   // Get command handles.
   for (const auto & type : m_cmd_interface_types)
@@ -474,37 +483,33 @@ void CartesianControllerBase::publishStateFeedback()
 {
   // End-effector pose
   auto pose = m_ik_solver->getEndEffectorPose();
-  if (m_feedback_pose_publisher->trylock())
-  {
-    m_feedback_pose_publisher->msg_.header.stamp = get_node()->now();
-    m_feedback_pose_publisher->msg_.header.frame_id = m_robot_base_link;
-    m_feedback_pose_publisher->msg_.pose.position.x = pose.p.x();
-    m_feedback_pose_publisher->msg_.pose.position.y = pose.p.y();
-    m_feedback_pose_publisher->msg_.pose.position.z = pose.p.z();
+  geometry_msgs::msg::PoseStamped pose_msg;
+  pose_msg.header.stamp = get_node()->now();
+  pose_msg.header.frame_id = m_robot_base_link;
+  pose_msg.pose.position.x = pose.p.x();
+  pose_msg.pose.position.y = pose.p.y();
+  pose_msg.pose.position.z = pose.p.z();
 
-    pose.M.GetQuaternion(m_feedback_pose_publisher->msg_.pose.orientation.x,
-                         m_feedback_pose_publisher->msg_.pose.orientation.y,
-                         m_feedback_pose_publisher->msg_.pose.orientation.z,
-                         m_feedback_pose_publisher->msg_.pose.orientation.w);
+  pose.M.GetQuaternion(pose_msg.pose.orientation.x,
+                       pose_msg.pose.orientation.y,
+                       pose_msg.pose.orientation.z,
+                       pose_msg.pose.orientation.w);
 
-    m_feedback_pose_publisher->unlockAndPublish();
-  }
+  m_feedback_pose_publisher->try_publish(pose_msg);
 
   // End-effector twist
   auto twist = m_ik_solver->getEndEffectorVel();
-  if (m_feedback_twist_publisher->trylock())
-  {
-    m_feedback_twist_publisher->msg_.header.stamp = get_node()->now();
-    m_feedback_twist_publisher->msg_.header.frame_id = m_robot_base_link;
-    m_feedback_twist_publisher->msg_.twist.linear.x = twist[0];
-    m_feedback_twist_publisher->msg_.twist.linear.y = twist[1];
-    m_feedback_twist_publisher->msg_.twist.linear.z = twist[2];
-    m_feedback_twist_publisher->msg_.twist.angular.x = twist[3];
-    m_feedback_twist_publisher->msg_.twist.angular.y = twist[4];
-    m_feedback_twist_publisher->msg_.twist.angular.z = twist[5];
+  geometry_msgs::msg::TwistStamped twist_msg;
+  twist_msg.header.stamp = get_node()->now();
+  twist_msg.header.frame_id = m_robot_base_link;
+  twist_msg.twist.linear.x = twist[0];
+  twist_msg.twist.linear.y = twist[1];
+  twist_msg.twist.linear.z = twist[2];
+  twist_msg.twist.angular.x = twist[3];
+  twist_msg.twist.angular.y = twist[4];
+  twist_msg.twist.angular.z = twist[5];
 
-    m_feedback_twist_publisher->unlockAndPublish();
-  }
+  m_feedback_twist_publisher->try_publish(twist_msg);
 }
 
 }  // namespace cartesian_controller_base

@@ -59,15 +59,12 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         $<INSTALL_INTERFACE:include>
 )
 
-ament_target_dependencies(${PROJECT_NAME}
-        cartesian_controller_base
-        hardware_interface
-        pluginlib
-        rclcpp
-)
-
-target_link_libraries(${PROJECT_NAME}
-        mujoco_simulator
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  ${cartesian_controller_base_TARGETS}
+  ${hardware_interface_TARGETS}
+  ${pluginlib_TARGETS}
+  ${rclcpp_TARGETS}
+  mujoco_simulator
 )
 
 pluginlib_export_plugin_description_file(hardware_interface cartesian_controller_simulation.xml)

@@ -12,6 +12,8 @@
   <depend>rclcpp</depend>
   <depend>cartesian_controller_base</depend>
   <depend>controller_interface</depend>
+  <depend>eigen</depend>
+  <depend>pluginlib</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
